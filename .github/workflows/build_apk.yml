@@ -1,4 +1,4 @@
-name: Build Android APK Automatically
+name: Build Android APK with Firebase
 
 on:
   push:
@@ -25,14 +25,37 @@ jobs:
           flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Generate Framework and Android Files
+      - name: Generate Framework with Custom Package Name & Setup Firebase
         run: |
-          # 1. Generate clean Android template project
-          flutter create temp_app --org com.fikra.pro --project-name fluter_new
+          # 1. Generate clean Android template project using your exact Firebase package name
+          flutter create temp_app --org com.fikrapro --project-name fluter_new
           cp -r temp_app/android ./
           rm -rf temp_app
 
-          # 2. Insert AndroidManifest.xml directly inside the workflow script
+          # 2. Copy google-services.json into the Android app directory if it exists in the repo root
+          if [ -f "google-services.json" ]; then
+            cp google-services.json android/app/
+            echo "google-services.json successfully applied!"
+          else
+            echo "WARNING: google-services.json not found in root repository."
+          fi
+
+          # 3. Configure Gradle to support Google Services / Firebase
+          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+          SETTINGS_FILE="android/settings.gradle"
+          if [ -f "$SETTINGS_FILE" ]; then
+            python3 -c "
+            with open('$SETTINGS_FILE', 'r') as f:
+                content = f.read()
+            if 'google-services' not in content:
+                content = content.replace('plugins {', 'plugins {\n    id \"com.google.gms.google-services\" version \"4.4.2\" apply false')
+                with open('$SETTINGS_FILE', 'w') as f:
+                    f.write(content)
+            "
+          fi
+
+          # 4. Insert AndroidManifest.xml directly with your app label and AdMob config
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
@@ -40,7 +63,6 @@ jobs:
                   android:name="${applicationName}"
                   android:icon="@mipmap/ic_launcher">
 
-                  <!-- AdMob Application ID meta-data tag (Prevents native startup crash) -->
                   <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
                       android:value="ca-app-pub-3940256099942544~3375012500"/>
@@ -70,7 +92,7 @@ jobs:
           </manifest>
           EOF
 
-          # 3. Create pubspec.yaml with all dependencies and assets
+          # 5. Create pubspec.yaml with all dependencies and assets
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -111,15 +133,13 @@ jobs:
             min_sdk_android: 21
           EOF
 
-      - name: Auto-Fix Code Typos & Configure App
+      - name: Auto-Fix Code Typos & Build App
         run: |
-          # Automatically fix MainAxisAlignment.between -> MainAxisAlignment.spaceBetween across all files
+          # Automatically fix code typos
           find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
-          
-          # Automatically fix invalid const RichText usages
           find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
 
-          # Change string resources to "Fikra Pro"
+          # Set app display name to Fikra Pro
           STRING_FILE="android/app/src/main/res/values/strings.xml"
           mkdir -p android/app/src/main/res/values
           echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
@@ -128,8 +148,8 @@ jobs:
           flutter pub get
           flutter pub run flutter_launcher_icons
 
-      - name: Build Release APK
-        run: flutter build apk --release --no-tree-shake-icons
+          # Build Release APK
+          flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
