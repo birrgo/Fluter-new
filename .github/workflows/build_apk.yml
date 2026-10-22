@@ -1,6 +1,5 @@
 name: Build Android APK Automatically
 
-
 on:
   push:
     branches: [ main ]
@@ -26,15 +25,52 @@ jobs:
           flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Generate Project Framework & Config
+      - name: Generate Framework and Android Files
         run: |
-          # 1. Create a temporary flutter project to get clean config files
+          # 1. Generate clean Android template project
           flutter create temp_app --org com.fikra.pro --project-name fluter_new
-          
-          # 2. Copy the android configuration folders to your root repository
           cp -r temp_app/android ./
-          
-          # 3. Automatically create pubspec.yaml with all dependencies, assets, and icon config
+          rm -rf temp_app
+
+          # 2. Write custom AndroidManifest.xml with AdMob App ID & Fikra Pro Label
+          cat << 'EOF' > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:label="Fikra Pro"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+
+                  <!-- AdMob Application ID meta-data tag (Prevents native startup crash) -->
+                  <meta-data
+                      android:name="com.google.android.gms.ads.APPLICATION_ID"
+                      android:value="ca-app-pub-3940256099942544~3375012500"/>
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:taskAffinity=""
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"
+                        />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+          # 3. Create pubspec.yaml with all dependencies and assets
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -75,40 +111,18 @@ jobs:
             min_sdk_android: 21
           EOF
 
-          # 4. Clean up the temporary folder
-          rm -rf temp_app
-
-      - name: Fix Crashes, Typos, and Inject AdMob Config
+      - name: Generate App Icons & Configure Display Name
         run: |
-          # 1. Explicitly set Android display name to "Fikra Pro"
+          # Change string resources to "Fikra Pro"
           STRING_FILE="android/app/src/main/res/values/strings.xml"
-          if [ -f "$STRING_FILE" ]; then
-            sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Fikra Pro<\/string>/g' "$STRING_FILE"
-          else
-            mkdir -p android/app/src/main/res/values
-            echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
-          fi
+          mkdir -p android/app/src/main/res/values
+          echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
 
-          # 2. Inject AdMob App ID into AndroidManifest.xml to prevent ad crashes
-          MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST_FILE" ]; then
-            # Insert the meta-data right before the closing </application> tag
-            sed -i '/<\/application>/i \    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3375012500"/>' "$MANIFEST_FILE"
-          fi
-
-          # 3. Fix common Dart code typos
-          find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
-          find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
-
-          # 4. Make Firebase and AdMob initializations 100% crash-proof
-          find lib/ -type f -name "main.dart" -exec sed -i 's/await Firebase.initializeApp();/try { await Firebase.initializeApp(); } catch (e) { print(e); }/g' {} +
-          find lib/ -type f -name "main.dart" -exec sed -i 's/MobileAds.instance.initialize();/try { MobileAds.instance.initialize(); } catch (e) { print(e); }/g' {} +
-
-          # 5. Install packages and generate launcher icons
+          # Install packages and generate launcher icons
           flutter pub get
           flutter pub run flutter_launcher_icons
 
-      - name: Build APK
+      - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
