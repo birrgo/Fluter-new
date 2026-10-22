@@ -111,8 +111,14 @@ jobs:
             min_sdk_android: 21
           EOF
 
-      - name: Generate App Icons & Configure Display Name
+      - name: Auto-Fix Code Typos & Configure App
         run: |
+          # Automatically fix MainAxisAlignment.between -> MainAxisAlignment.spaceBetween across all files
+          find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
+          
+          # Automatically fix invalid const RichText usages
+          find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
+
           # Change string resources to "Fikra Pro"
           STRING_FILE="android/app/src/main/res/values/strings.xml"
           mkdir -p android/app/src/main/res/values
