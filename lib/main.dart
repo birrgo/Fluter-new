@@ -5,15 +5,23 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'menu_screen.dart';
-// Note: Imports for new screens would go here, e.g.,
-// import 'online_jobs_screen.dart';
-// import 'tech_hub_screen.dart';
-// import 'social_hub_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  MobileAds.instance.initialize();
+  
+  // Crash-proof initializations
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
+
+  try {
+    MobileAds.instance.initialize();
+  } catch (e) {
+    debugPrint("AdMob init error: $e");
+  }
+
   runApp(const FikraProApp());
 }
 
@@ -47,7 +55,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Transition to HomeScreen after initial splash display delay
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         Navigator.pushReplacement(
@@ -66,6 +73,8 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Image.asset(
           'assets/images/s1.png',
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => 
+              const Center(child: Text("Fikra Pro", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
         ),
       ),
     );
@@ -100,12 +109,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  DatabaseReference? _dbRef;
   static const String appNodeName = "app14";
 
-  int _currentIndex = 0; // State for BottomNavigationBar
-
-  // AdMob config objects
+  int _currentIndex = 0;
   Map<dynamic, dynamic> _adConfig = {};
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
@@ -116,7 +123,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadAdConfigAndInit();
+    try {
+      _dbRef = FirebaseDatabase.instance.ref();
+      _loadAdConfigAndInit();
+    } catch (e) {
+      debugPrint("Database init error: $e");
+    }
   }
 
   @override
@@ -134,9 +146,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // --- ADMOB CONFIGURATION ---
   void _loadAdConfigAndInit() {
-    _dbRef.child('$appNodeName/adManager').onValue.listen((event) {
+    if (_dbRef == null) return;
+    _dbRef!.child('$appNodeName/adManager').onValue.listen((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       if (data != null) {
         setState(() {
@@ -210,12 +222,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     )..load();
   }
 
-  // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
-    // List of screens to display, order must match BottomNavigationBarItems
     final List<Widget> _screens = [
-      FikraProNewsList(adConfig: _adConfig), // The original content widget
+      FikraProNewsList(adConfig: _adConfig),
       const OnlineJobsScreen(),
       const TechHubScreen(),
       const SocialHubScreen(),
@@ -253,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: Column(
         children: [
           Expanded(
-            child: IndexedStack( // efficient for switching screens
+            child: IndexedStack(
               index: _currentIndex,
               children: _screens,
             ),
@@ -267,39 +277,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ],
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.only(bottom: 24), // mimic the dark-theme bar look
-        color: const Color(0xFF131313), // dark theme from image
+        padding: const EdgeInsets.only(bottom: 24),
+        color: const Color(0xFF131313),
         child: BottomNavigationBar(
-          backgroundColor: const Color(0xFF131313), // dark theme from image
+          backgroundColor: const Color(0xFF131313),
           currentIndex: _currentIndex,
-          type: BottomNavigationBarType.fixed, // show all items
-          selectedItemColor: Colors.blue[600], // blue selected color from image
-          unselectedItemColor: Colors.grey, // unselected grey from image
-          selectedLabelStyle: const TextStyle(color: Colors.white), // white selected text
-          unselectedLabelStyle: const TextStyle(color: Colors.grey), // unselected grey text
-          showUnselectedLabels: true, // as seen in image
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Colors.blue[600],
+          unselectedItemColor: Colors.grey,
+          selectedLabelStyle: const TextStyle(color: Colors.white),
+          unselectedLabelStyle: const TextStyle(color: Colors.grey),
+          showUnselectedLabels: true,
           onTap: (index) {
             setState(() {
               _currentIndex = index;
             });
           },
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view), // blocks for online/categories
-              label: 'Online',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.engineering), // chip/cog for tech/bookmarks style from image but label is tech
-              label: 'Tech',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.group), // group for social/profile from image but label is social
-              label: 'Social',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: 'Online'),
+            BottomNavigationBarItem(icon: Icon(Icons.engineering), label: 'Tech'),
+            BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Social'),
           ],
         ),
       ),
@@ -317,7 +315,7 @@ class FikraProNewsList extends StatefulWidget {
 }
 
 class _FikraProNewsListState extends State<FikraProNewsList> {
-  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+  DatabaseReference? _dbRef;
   static const String appNodeName = "app14";
 
   List<Map<dynamic, dynamic>> _broadcasts = [];
@@ -326,11 +324,18 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
   @override
   void initState() {
     super.initState();
-    _fetchDatabaseNews();
+    try {
+      _dbRef = FirebaseDatabase.instance.ref();
+      _fetchDatabaseNews();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
-  // --- FIREBASE NEWS STREAMING ---
   void _fetchDatabaseNews() {
+    if (_dbRef == null) return;
     List<Map<dynamic, dynamic>> tempList = [];
 
     void processNode(Object? data, String defaultCat) {
@@ -341,7 +346,6 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
             item['id'] = key;
             item['category'] = (item['category'] ?? defaultCat).toString().replaceAll(RegExp('Shikela', caseSensitive: false), 'Fikra Pro');
             
-            // Extract Timestamp safely
             var rawTime = item['timestamp'] ?? item['updatedAt'] ?? item['createdAtTimestamp'] ?? DateTime.now().millisecondsSinceEpoch;
             if (rawTime is String) rawTime = int.tryParse(rawTime) ?? DateTime.now().millisecondsSinceEpoch;
             item['resolvedTimestamp'] = rawTime;
@@ -352,12 +356,12 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
       }
     }
 
-    _dbRef.child('$appNodeName/shikelaNews').onValue.listen((event) {
+    _dbRef!.child('$appNodeName/shikelaNews').onValue.listen((event) {
       processNode(event.snapshot.value, 'Fikra Pro Update');
       _sortAndSaveList(tempList);
     });
 
-    _dbRef.child('$appNodeName/newNews').onValue.listen((event) {
+    _dbRef!.child('$appNodeName/newNews').onValue.listen((event) {
       processNode(event.snapshot.value, 'Fikra Pro Tips');
       _sortAndSaveList(tempList);
     });
@@ -456,7 +460,8 @@ class NewsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              // FIXED: Changed from MainAxisAlignment.between to MainAxisAlignment.spaceBetween
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
