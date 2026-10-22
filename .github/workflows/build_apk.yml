@@ -32,7 +32,7 @@ jobs:
           cp -r temp_app/android ./
           rm -rf temp_app
 
-          # 2. Write custom AndroidManifest.xml with AdMob App ID & Fikra Pro Label
+          # 2. Insert AndroidManifest.xml directly inside the workflow script
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
