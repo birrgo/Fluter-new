@@ -25,7 +25,7 @@ jobs:
           flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Generate Project Framework & Inject Config
+      - name: Generate Project Framework & Config
         run: |
           # 1. Create a temporary flutter project to get clean config files
           flutter create temp_app --org com.fikra.pro --project-name fluter_new
@@ -33,7 +33,7 @@ jobs:
           # 2. Copy the android configuration folders to your root repository
           cp -r temp_app/android ./
           
-          # 3. Automatically create pubspec.yaml with ALL required dependencies (including url_launcher)
+          # 3. Automatically create pubspec.yaml with all dependencies, assets, and icon config
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -58,24 +58,48 @@ jobs:
             flutter_test:
               sdk: flutter
             flutter_lints: ^3.0.0
+            flutter_launcher_icons: ^0.13.1
 
           flutter:
             uses-material-design: true
+            assets:
+              - assets/images/s.png
+              - assets/images/s1.png
+              - assets/images/s2.png
+
+          flutter_launcher_icons:
+            image_path: "assets/images/s.png"
+            android: true
+            ios: false
+            min_sdk_android: 21
           EOF
 
           # 4. Clean up the temporary folder
           rm -rf temp_app
 
-      - name: Auto-fix Common Code Typos
+      - name: Configure App Name, Fix Typos, and Set Logo
         run: |
-          # Fix MainAxisAlignment.between -> MainAxisAlignment.spaceBetween
+          # Explicitly set Android display name to "Fikra Pro"
+          STRING_FILE="android/app/src/main/res/values/strings.xml"
+          if [ -f "$STRING_FILE" ]; then
+            sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Fikra Pro<\/string>/g' "$STRING_FILE"
+          else
+            mkdir -p android/app/src/main/res/values
+            echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
+          fi
+
+          # Fix common Dart code typos
           find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
-          
-          # Fix invalid const RichText usage
           find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
 
-      - name: Install Dependencies
-        run: flutter pub get
+          # Make Firebase initialization safe from crashing if google-services.json is absent
+          find lib/ -type f -name "main.dart" -exec sed -i 's/await Firebase.initializeApp();/try { await Firebase.initializeApp(); } catch (e) { print(e); }/g' {} +
+
+          # Install packages including launcher icons tool
+          flutter pub get
+
+          # Generate the custom app icon from s.png
+          flutter pub run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
