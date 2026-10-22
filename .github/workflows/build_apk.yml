@@ -77,9 +77,9 @@ jobs:
           # 4. Clean up the temporary folder
           rm -rf temp_app
 
-      - name: Configure App Name, Fix Typos, and Set Logo
+      - name: Fix Crashes, Typos, and Inject AdMob Config
         run: |
-          # Explicitly set Android display name to "Fikra Pro"
+          # 1. Explicitly set Android display name to "Fikra Pro"
           STRING_FILE="android/app/src/main/res/values/strings.xml"
           if [ -f "$STRING_FILE" ]; then
             sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Fikra Pro<\/string>/g' "$STRING_FILE"
@@ -88,17 +88,23 @@ jobs:
             echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
           fi
 
-          # Fix common Dart code typos
+          # 2. Inject AdMob App ID into AndroidManifest.xml to prevent ad crashes
+          MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST_FILE" ]; then
+            # Insert the meta-data right before the closing </application> tag
+            sed -i '/<\/application>/i \    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3375012500"/>' "$MANIFEST_FILE"
+          fi
+
+          # 3. Fix common Dart code typos
           find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
           find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
 
-          # Make Firebase initialization safe from crashing if google-services.json is absent
+          # 4. Make Firebase and AdMob initializations 100% crash-proof
           find lib/ -type f -name "main.dart" -exec sed -i 's/await Firebase.initializeApp();/try { await Firebase.initializeApp(); } catch (e) { print(e); }/g' {} +
+          find lib/ -type f -name "main.dart" -exec sed -i 's/MobileAds.instance.initialize();/try { MobileAds.instance.initialize(); } catch (e) { print(e); }/g' {} +
 
-          # Install packages including launcher icons tool
+          # 5. Install packages and generate launcher icons
           flutter pub get
-
-          # Generate the custom app icon from s.png
           flutter pub run flutter_launcher_icons
 
       - name: Build APK
