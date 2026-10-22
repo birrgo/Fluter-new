@@ -25,9 +25,9 @@ jobs:
           flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Initialize Android Project Skeleton
+      - name: Generate Missing Project Files
         run: |
-          flutter create --template=app . --overwrite
+          flutter create . --platforms=android
 
       - name: Install Dependencies
         run: flutter pub get
