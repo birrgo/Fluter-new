@@ -1,6 +1,5 @@
 name: Build Android APK Automatically
 
-
 on:
   push:
     branches: [ main ]
@@ -34,7 +33,7 @@ jobs:
           # 2. Copy the android configuration folders to your root repository
           cp -r temp_app/android ./
           
-          # 3. Automatically create pubspec.yaml with all your required dependencies
+          # 3. Automatically create pubspec.yaml with ALL required dependencies (including url_launcher)
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -53,6 +52,7 @@ jobs:
             google_mobile_ads: ^8.0.0
             cached_network_image: ^3.3.1
             intl: ^0.19.0
+            url_launcher: ^6.2.5
 
           dev_dependencies:
             flutter_test:
@@ -65,6 +65,14 @@ jobs:
 
           # 4. Clean up the temporary folder
           rm -rf temp_app
+
+      - name: Auto-fix Common Code Typos
+        run: |
+          # Fix MainAxisAlignment.between -> MainAxisAlignment.spaceBetween
+          find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
+          
+          # Fix invalid const RichText usage
+          find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
 
       - name: Install Dependencies
         run: flutter pub get
