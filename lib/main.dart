@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'cached_network_image/cached_network_image.dart'; // Keep your original imports
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'menu_screen.dart';
+import 'online_jobs_screen.dart';
+import 'tech_hub_screen.dart';
+import 'social_hub_screen.dart';
+import 'article_details_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +40,6 @@ class FikraProApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F2C59)),
         scaffoldBackgroundColor: const Color(0xFFFAFBFC),
-        // FIXED: Removed missing 'Plus Jakarta Sans' fontFamily to prevent startup font-loading crashes
       ),
       home: const SplashScreen(),
     );
@@ -79,25 +82,6 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     );
   }
-}
-
-// --- PLACEHOLDER SCREENS ---
-class OnlineJobsScreen extends StatelessWidget {
-  const OnlineJobsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(child: Text("Online Jobs Screen"));
-}
-
-class TechHubScreen extends StatelessWidget {
-  const TechHubScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(child: Text("Tech Hub Screen"));
-}
-
-class SocialHubScreen extends StatelessWidget {
-  const SocialHubScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(child: Text("Social Hub Screen"));
 }
 
 // --- PARENT HOME SCREEN WITH NAVIGATION ---
