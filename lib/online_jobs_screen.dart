@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'article_details_screen.dart';
 
 class OnlineJobsScreen extends StatefulWidget {
   const OnlineJobsScreen({super.key});
@@ -15,10 +16,9 @@ class _OnlineJobsScreenState extends State<OnlineJobsScreen> with WidgetsBinding
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
   static const String appNodeName = "app14";
 
-  Map<String, dynamic> _rawNewsCache = {};
+  final Map<String, dynamic> _rawNewsCache = {};
   List<Map<dynamic, dynamic>> _broadcasts = [];
   bool _isLoading = true;
-  String _activeCategoryFilter = "Online Update";
 
   Map<dynamic, dynamic> _adConfig = {};
   BannerAd? _bannerAd;
@@ -130,70 +130,54 @@ class _OnlineJobsScreenState extends State<OnlineJobsScreen> with WidgetsBinding
     tempList.sort((a, b) {
       int timeA = a['updatedAt'] ?? a['createdAtTimestamp'] ?? a['timestamp'] ?? 0;
       int timeB = b['updatedAt'] ?? b['createdAtTimestamp'] ?? b['timestamp'] ?? 0;
-      if (timeA == 0 && a['date'] != null) timeA = DateTime.tryParse(a['date'])?.millisecondsSinceEpoch ?? 0;
-      if (timeB == 0 && b['date'] != null) timeB = DateTime.tryParse(b['date'])?.millisecondsSinceEpoch ?? 0;
+      if (timeA == 0 && a['date'] != null) timeA = DateTime.tryParse(a['date'].toString())?.millisecondsSinceEpoch ?? 0;
+      if (timeB == 0 && b['date'] != null) timeB = DateTime.tryParse(b['date'].toString())?.millisecondsSinceEpoch ?? 0;
       if (timeA != 0 || timeB != 0) return timeB.compareTo(timeA);
-      return b['id'].compareTo(a['id']);
+      return b['id'].toString().compareTo(a['id'].toString());
     });
 
-    setState(() {
-      _broadcasts = tempList;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _broadcasts = tempList;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter items based on active category
-    final filteredBroadcasts = _broadcasts.where((item) {
-      final nodeCategory = (item['category'] ?? 'Online Update').toString().trim().toLowerCase();
-      return nodeCategory == _activeCategoryFilter.trim().toLowerCase();
-    }).toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF081B38),
-        title: const Text("What's new?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {
-            // Open your custom drawer menu
-          },
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredBroadcasts.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Text(
-                            "There are no updates or notices posted under this category today.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
+    return Column(
+      children: [
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _broadcasts.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text(
+                          "There are no online job postings or updates available right now.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filteredBroadcasts.length,
-                        itemBuilder: (context, index) {
-                          final item = filteredBroadcasts[index];
-                          return NewsCard(item: item, adConfig: _adConfig);
-                        },
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _broadcasts.length,
+                      itemBuilder: (context, index) {
+                        final item = _broadcasts[index];
+                        return NewsCard(item: item, adConfig: _adConfig);
+                      },
+                    ),
+        ),
+        if (_isBannerLoaded && _bannerAd != null)
+          SizedBox(
+            height: _bannerAd!.size.height.toDouble(),
+            width: _bannerAd!.size.width.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
           ),
-          if (_isBannerLoaded && _bannerAd != null)
-            SizedBox(
-              height: _bannerAd!.size.height.toDouble(),
-              width: _bannerAd!.size.width.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -232,27 +216,29 @@ class NewsCard extends StatelessWidget {
   void _navigateToDetails(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(item: item)),
+      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(articleData: item)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = item['title'] ?? item['newsTitle'] ?? 'Shikela Update';
+    final title = item['title'] ?? item['newsTitle'] ?? 'Fikra Pro Update';
     final content = item['content'] ?? item['message'] ?? '';
     final preview = content.length > 120 ? '${content.substring(0, 120)}...' : content;
-    final category = item['category'] ?? 'Online Update';
+    final category = item['category'] ?? 'Online Job';
     final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
 
     var numericalTime = item['updatedAt'] ?? item['createdAtTimestamp'] ?? item['timestamp'];
     if (numericalTime == null && item['date'] != null) {
-      numericalTime = DateTime.tryParse(item['date'])?.millisecondsSinceEpoch;
+      numericalTime = DateTime.tryParse(item['date'].toString())?.millisecondsSinceEpoch;
     }
     numericalTime ??= DateTime.now().millisecondsSinceEpoch;
 
     final dateTime = DateTime.fromMillisecondsSinceEpoch(numericalTime);
     final formattedTime = DateFormat('MMM d, yyyy • h:mm:ss a').format(dateTime);
-    final isTips = category.trim().toLowerCase().includes("tips");
+
+    // FIXED: Used .contains() instead of invalid .includes()
+    final isTips = category.toString().trim().toLowerCase().contains("tips");
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -271,7 +257,7 @@ class NewsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -280,7 +266,7 @@ class NewsCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    category,
+                    category.toString(),
                     style: TextStyle(
                       color: isTips ? const Color(0xFF2563EB) : const Color(0xFF0F2C59),
                       fontSize: 9.5,
@@ -291,12 +277,12 @@ class NewsCard extends StatelessWidget {
                 Text(formattedTime, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
               ],
             ),
-            if (imageUrl.isNotEmpty) ...[
+            if (imageUrl.toString().isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: CachedNetworkImage(
-                  imageUrl: imageUrl,
+                  imageUrl: imageUrl.toString(),
                   height: 180,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -306,44 +292,9 @@ class NewsCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.35)),
+            Text(title.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.35)),
             const SizedBox(height: 6),
-            Text(preview, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Color(0xFF475569), height: 1.55)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- ARTICLE DETAILS SCREEN ---
-class ArticleDetailsScreen extends StatelessWidget {
-  final Map<dynamic, dynamic> item;
-  const ArticleDetailsScreen({super.key, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = item['title'] ?? item['newsTitle'] ?? 'Details';
-    final content = item['content'] ?? item['message'] ?? '';
-    final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title, style: const TextStyle(fontSize: 14))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (imageUrl.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 16),
-            ],
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Text(content, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF334155))),
+            Text(preview.toString(), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Color(0xFF475569), height: 1.55)),
           ],
         ),
       ),
