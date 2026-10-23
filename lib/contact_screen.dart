@@ -91,7 +91,8 @@ class _ContactScreenState extends State<ContactScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  // FIXED: Changed from MainAxisAlignment.between to MainAxisAlignment.spaceBetween
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'Select Subject',
@@ -490,8 +491,9 @@ class _ContactScreenState extends State<ContactScreen> {
                     left: BorderSide(color: Color(0xFF10B981), width: 4),
                   ),
                 ),
-                child: const RichText(
-                  text: TextSpan(
+                // FIXED: Removed const from RichText to fix the const mismatch error
+                child: RichText(
+                  text: const TextSpan(
                     style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, height: 1.5),
                     children: [
                       TextSpan(
