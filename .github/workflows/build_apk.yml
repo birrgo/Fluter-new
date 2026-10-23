@@ -48,10 +48,8 @@ jobs:
             with open('$APP_GRADLE', 'r') as f:
                 content = f.read()
             
-            # Enable MultiDex and set minSdk 21
             content = content.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21\n        multiDexEnabled true')
             
-            # Apply Google Services plugin at the bottom
             if 'com.google.gms.google-services' not in content:
                 content += '\napply plugin: \"com.google.gms.google-services\"\n'
                 
@@ -84,7 +82,6 @@ jobs:
                   android:name="${applicationName}"
                   android:icon="@mipmap/ic_launcher">
 
-                  <!-- REQUIRED BY GOOGLE MOBILE ADS SDK: App will crash on boot without this -->
                   <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
                       android:value="ca-app-pub-3940256099942544~3375012500"/>
@@ -114,7 +111,7 @@ jobs:
           </manifest>
           EOF
 
-          # 6. Generate pubspec.yaml
+          # 6. Create pubspec.yaml
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -157,6 +154,10 @@ jobs:
 
       - name: Build Native Release APK
         run: |
+          # Automatically fix code typos (including MainAxisAlignment.between)
+          find lib/ -type f -name "*.dart" -exec sed -i 's/MainAxisAlignment\.between/MainAxisAlignment\.spaceBetween/g' {} +
+          find lib/ -type f -name "*.dart" -exec sed -i 's/const RichText(/RichText(/g' {} +
+
           # Set App Title
           mkdir -p android/app/src/main/res/values
           echo '<resources><string name="app_name">Fikra Pro</string></resources>' > android/app/src/main/res/values/strings.xml
@@ -165,7 +166,7 @@ jobs:
           flutter pub get
           flutter pub run flutter_launcher_icons
 
-          # Clean build APK release binary
+          # Build release APK binary
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
