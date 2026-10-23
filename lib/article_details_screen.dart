@@ -320,28 +320,26 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                             ),
                           ),
                         ),
-                      // Native Video Watch Button
+                      // Clean Native Video Watch Button
                       if (videoUrl.toString().isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
                           child: SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton.styleFrom(backgroundColor: Colors.red).wrap(
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[700],
-                                  padding: const EdgeInsets.all(14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                onPressed: () => _launchExternalUrl(videoUrl.toString().startsWith('http') ? videoUrl.toString() : 'https://youtube.com/watch?v=$videoUrl'),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.play_circle_fill, color: Colors.white, size: 22),
-                                    SizedBox(width: 8),
-                                    Text("Watch Video on YouTube", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                  ],
-                                ),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red[700],
+                                padding: const EdgeInsets.all(14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => _launchExternalUrl(videoUrl.toString().startsWith('http') ? videoUrl.toString() : 'https://youtube.com/watch?v=$videoUrl'),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.play_circle_fill, color: Colors.white, size: 22),
+                                  SizedBox(width: 8),
+                                  Text("Watch Video on YouTube", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                ],
                               ),
                             ),
                           ),
