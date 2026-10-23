@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'cached_network_image/cached_network_image.dart'; // Keep your original imports
 import 'package:intl/intl.dart';
 import 'menu_screen.dart';
 
@@ -36,7 +36,7 @@ class FikraProApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F2C59)),
         scaffoldBackgroundColor: const Color(0xFFFAFBFC),
-        fontFamily: 'Plus Jakarta Sans',
+        // FIXED: Removed missing 'Plus Jakarta Sans' fontFamily to prevent startup font-loading crashes
       ),
       home: const SplashScreen(),
     );
@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_dbRef == null) return;
     _dbRef!.child('$appNodeName/adManager').onValue.listen((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (data != null) {
+      if (data != null && mounted) {
         setState(() {
           _adConfig = data;
         });
@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _loadInitialAppOpenAd() {
-    final String? appOpenId = _adConfig['adMobAppOpenUnitId'];
+    final String? appOpenId = _adConfig['adMobAppOpenUnitId']?.toString();
     if (appOpenId == null) return;
 
     AppOpenAd.load(
@@ -189,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _showResumeAppOpenAd() {
     final bool adsEnabled = (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE';
     final bool resumePlacement = _adConfig['placements']?['appOpenAdResume'] == true;
-    final String? appOpenId = _adConfig['adMobAppOpenUnitId'];
+    final String? appOpenId = _adConfig['adMobAppOpenUnitId']?.toString();
 
     if (!adsEnabled || !resumePlacement || appOpenId == null) return;
 
@@ -197,9 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       adUnitId: appOpenId,
       request: const AdRequest(),
       adLoadCallback: AppOpenAdLoadCallback(
-        onAdLoaded: (ad) {
-          ad.show();
-        },
+        onAdLoaded: (ad) => ad.show(),
         onAdFailedToLoad: (error) {},
       ),
     );
@@ -207,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _initBannerAd() {
     final bool showBanner = _adConfig['placements']?['bannerAdHomePage'] == true;
-    final String? bannerId = _adConfig['adMobBannerUnitId'];
+    final String? bannerId = _adConfig['adMobBannerUnitId']?.toString();
 
     if (!showBanner || bannerId == null) return;
 
@@ -216,7 +214,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _isBannerLoaded = true),
+        onAdLoaded: (_) {
+          if (mounted) setState(() => _isBannerLoaded = true);
+        },
         onAdFailedToLoad: (ad, error) => ad.dispose(),
       ),
     )..load();
@@ -224,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _screens = [
+    final List<Widget> screens = [
       FikraProNewsList(adConfig: _adConfig),
       const OnlineJobsScreen(),
       const TechHubScreen(),
@@ -265,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Expanded(
             child: IndexedStack(
               index: _currentIndex,
-              children: _screens,
+              children: screens,
             ),
           ),
           if (_isBannerLoaded && _bannerAd != null)
@@ -328,9 +328,11 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
       _dbRef = FirebaseDatabase.instance.ref();
       _fetchDatabaseNews();
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -404,7 +406,7 @@ class NewsCard extends StatelessWidget {
   void _handleCardTap(BuildContext context) {
     final bool adsEnabled = (adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE';
     final bool interstitialPlacement = adConfig['placements']?['interstitialAdPostDetails'] == true;
-    final String? interstitialId = adConfig['adMobInterstitialUnitId'];
+    final String? interstitialId = adConfig['adMobInterstitialUnitId']?.toString();
 
     if (adsEnabled && interstitialPlacement && interstitialId != null) {
       InterstitialAd.load(
@@ -428,7 +430,7 @@ class NewsCard extends StatelessWidget {
   void _navigateToDetails(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(item: item)),
+      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(articleData: item)),
     );
   }
 
@@ -444,90 +446,33 @@ class NewsCard extends StatelessWidget {
     final formattedTime = DateFormat('MMM d, yyyy • h:mm:ss a').format(dateTime);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 6)),
-        ],
       ),
       child: InkWell(
         onTap: () => _handleCardTap(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              // FIXED: Changed from MainAxisAlignment.between to MainAxisAlignment.spaceBetween
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F2C59).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(category, style: const TextStyle(color: Color(0xFF0F2C59), fontSize: 9.5, fontWeight: FontWeight.w800)),
-                ),
-                Text(formattedTime, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-              ],
-            ),
-            if (imageUrl.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(height: 180, color: Colors.grey[200]),
-                  errorWidget: (context, url, error) => const SizedBox.shrink(),
-                ),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(category.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F2C59))),
+                  Text(formattedTime, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                ],
               ),
+              const SizedBox(height: 8),
+              Text(title.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 4),
+              Text(preview.toString(), style: const TextStyle(fontSize: 13, color: Color(0xFF475569))),
             ],
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.35)),
-            const SizedBox(height: 6),
-            Text(preview, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Color(0xFF475569), height: 1.55)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- ARTICLE DETAILS PAGE ---
-class ArticleDetailsScreen extends StatelessWidget {
-  final Map<dynamic, dynamic> item;
-  const ArticleDetailsScreen({super.key, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = item['title'] ?? item['newsTitle'] ?? 'Details';
-    final content = item['content'] ?? item['message'] ?? '';
-    final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title, style: const TextStyle(fontSize: 14))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (imageUrl.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 16),
-            ],
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Text(content, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF334155))),
-          ],
+          ),
         ),
       ),
     );
