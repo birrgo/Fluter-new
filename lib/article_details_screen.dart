@@ -7,7 +7,8 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:intl/intl.dart';
 
 class ArticleDetailsScreen extends StatefulWidget {
-  final Map<String, dynamic> articleData;
+  // FIXED: Changed from Map<String, dynamic> to Map<dynamic, dynamic> to prevent TypeCasting crashes
+  final Map<dynamic, dynamic> articleData;
   final bool isAdminMode;
 
   const ArticleDetailsScreen({
@@ -27,6 +28,9 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
   static const Color textDark = Color(0xFF0F172A);
   static const Color textMuted = Color(0xFF64748B);
   static const Color borderLight = Color(0xFFE2E8F0);
+
+  // App Database Node Name
+  static const String appNodeName = "app14";
 
   // AdMob Native Ad State
   NativeAd? _nativeAd;
@@ -49,7 +53,7 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
         widget.articleData['youtubeId'] ??
         '';
 
-    final videoId = YoutubePlayer.convertUrlToId(rawVideoUrl);
+    final videoId = YoutubePlayer.convertUrlToId(rawVideoUrl.toString());
     if (videoId != null && videoId.isNotEmpty) {
       _youtubeController = YoutubePlayerController(
         initialVideoId: videoId,
@@ -62,18 +66,19 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     }
   }
 
-  /// Fetch AdMob Config from Firebase RTDB Node ('app1/adManager')
+  /// Fetch AdMob Config from Firebase RTDB Node ('app14/adManager')
   Future<void> _fetchAdConfigAndLoadNativeAd() async {
     try {
-      final dbRef = FirebaseDatabase.instance.ref('app1/adManager');
+      // FIXED: Updated from 'app1' to 'app14'
+      final dbRef = FirebaseDatabase.instance.ref('$appNodeName/adManager');
       final snapshot = await dbRef.get();
 
       if (snapshot.exists && snapshot.value is Map) {
-        final data = Map<String, dynamic>.from(snapshot.value as Map);
-        final bool status = data['adStatus'].toString().toUpperCase() == 'TRUE' ||
-            data['adStatus'].toString().toUpperCase() == 'ON';
+        final data = Map<dynamic, dynamic>.from(snapshot.value as Map);
+        final bool status = (data['adStatus'] ?? '').toString().toUpperCase() == 'TRUE' ||
+            (data['adStatus'] ?? '').toString().toUpperCase() == 'ON';
 
-        final String nativeId = data['adMobNativeUnitId'] ?? '';
+        final String nativeId = data['adMobNativeUnitId']?.toString() ?? '';
 
         if (status && nativeId.isNotEmpty) {
           _loadNativeAd(nativeId);
@@ -107,10 +112,11 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
   /// Duplicate Article Functionality for Admin Mode
   Future<void> _duplicateAsAdmin() async {
     try {
+      // FIXED: Updated from 'app1' to 'app14'
       final DatabaseReference dbRef =
-          FirebaseDatabase.instance.ref('app1/shikelaNews');
+          FirebaseDatabase.instance.ref('$appNodeName/shikelaNews');
 
-      final cloned = Map<String, dynamic>.from(widget.articleData);
+      final cloned = Map<dynamic, dynamic>.from(widget.articleData);
       final now = DateTime.now().millisecondsSinceEpoch;
 
       cloned['createdAtTimestamp'] = now;
@@ -118,7 +124,7 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
       cloned['timestamp'] = now;
       cloned['title'] = "${cloned['title'] ?? cloned['newsTitle'] ?? 'Untitled'} (Copy)";
 
-      await dbRef.push().set(cloned);
+      await dbRef.push().set(Map<String, dynamic>.from(cloned));
       _showPopupAlert("✅", "Article Duplicated", "Successfully duplicated item in database.");
     } catch (e) {
       _showPopupAlert("❌", "Duplication Error", "Failed to duplicate item into database.");
@@ -339,7 +345,7 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
 
                       // Title
                       Text(
-                        headline,
+                        headline.toString(),
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textDark, height: 1.3),
                       ),
                       const SizedBox(height: 16),
@@ -351,7 +357,7 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: CachedNetworkImage(
-                              imageUrl: imageUrl,
+                              imageUrl: imageUrl.toString(),
                               width: double.infinity,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => Container(
@@ -379,7 +385,7 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
 
                       // Article Body Text
                       Text(
-                        fullContent,
+                        fullContent.toString(),
                         style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                       ),
 
@@ -395,11 +401,11 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                                 padding: const EdgeInsets.all(14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              onPressed: () => _launchExternalUrl(targetRedirectUrl),
+                              onPressed: () => _launchExternalUrl(targetRedirectUrl.toString()),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(customActionLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text(customActionLabel.toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                                   const SizedBox(width: 8),
                                   const Icon(Icons.open_in_new, size: 18, color: Colors.white),
                                 ],
