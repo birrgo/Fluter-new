@@ -3,11 +3,9 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:intl/intl.dart';
 
 class ArticleDetailsScreen extends StatefulWidget {
-  // FIXED: Changed from Map<String, dynamic> to Map<dynamic, dynamic> to prevent TypeCasting crashes
   final Map<dynamic, dynamic> articleData;
   final bool isAdminMode;
 
@@ -22,55 +20,25 @@ class ArticleDetailsScreen extends StatefulWidget {
 }
 
 class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
-  // Theme Color Constants matching your HTML/CSS design
   static const Color primaryHeaderDark = Color(0xFF081B38);
   static const Color primaryBurgundy = Color(0xFF0F2C59);
   static const Color textDark = Color(0xFF0F172A);
   static const Color textMuted = Color(0xFF64748B);
   static const Color borderLight = Color(0xFFE2E8F0);
 
-  // App Database Node Name
   static const String appNodeName = "app14";
 
-  // AdMob Native Ad State
   NativeAd? _nativeAd;
   bool _isNativeAdLoaded = false;
-
-  // YouTube Player Controller
-  YoutubePlayerController? _youtubeController;
 
   @override
   void initState() {
     super.initState();
-    _initYouTubePlayer();
     _fetchAdConfigAndLoadNativeAd();
   }
 
-  /// Initialize YouTube Embed if Video URL or ID exists
-  void _initYouTubePlayer() {
-    final rawVideoUrl = widget.articleData['videoUrl'] ??
-        widget.articleData['youtubeUrl'] ??
-        widget.articleData['youtubeId'] ??
-        '';
-
-    final videoId = YoutubePlayer.convertUrlToId(rawVideoUrl.toString());
-    if (videoId != null && videoId.isNotEmpty) {
-      _youtubeController = YoutubePlayerController(
-        initialVideoId: videoId,
-        // FIXED: Removed 'const' to resolve constant expression build compilation errors
-        flags: YoutubePlayerFlags(
-          autoPlay: false,
-          mute: false,
-          enableCaption: true,
-        ),
-      );
-    }
-  }
-
-  /// Fetch AdMob Config from Firebase RTDB Node ('app14/adManager')
   Future<void> _fetchAdConfigAndLoadNativeAd() async {
     try {
-      // FIXED: Updated from 'app1' to 'app14'
       final dbRef = FirebaseDatabase.instance.ref('$appNodeName/adManager');
       final snapshot = await dbRef.get();
 
@@ -90,7 +58,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     }
   }
 
-  /// Load Native AdMob Ad
   void _loadNativeAd(String unitId) {
     _nativeAd = NativeAd(
       adUnitId: unitId,
@@ -110,10 +77,8 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     )..load();
   }
 
-  /// Duplicate Article Functionality for Admin Mode
   Future<void> _duplicateAsAdmin() async {
     try {
-      // FIXED: Updated from 'app1' to 'app14'
       final DatabaseReference dbRef =
           FirebaseDatabase.instance.ref('$appNodeName/shikelaNews');
 
@@ -132,7 +97,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     }
   }
 
-  /// Display Popup Dialog matching web style
   void _showPopupAlert(String icon, String title, String desc) {
     showDialog(
       context: context,
@@ -165,7 +129,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     );
   }
 
-  /// Launch external links safely
   Future<void> _launchExternalUrl(String urlStr) async {
     final Uri? uri = Uri.tryParse(urlStr);
     if (uri != null && await canLaunchUrl(uri)) {
@@ -173,7 +136,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     }
   }
 
-  /// Format Timestamps cleanly
   String _formatTimestamp(dynamic timestamp) {
     int epoch = DateTime.now().millisecondsSinceEpoch;
     if (timestamp is int) {
@@ -188,19 +150,19 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
   @override
   void dispose() {
     _nativeAd?.dispose();
-    _youtubeController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final item = widget.articleData;
-    final headline = item['title'] ?? item['newsTitle'] ?? "Shikela Update";
+    final headline = item['title'] ?? item['newsTitle'] ?? "Fikra Pro Update";
     final fullContent = item['content'] ?? item['message'] ?? "";
     final category = item['category'] ?? "Online Update";
     final imageUrl = item['imageUrl'] ?? item['image'] ?? "";
     final duplicateCoverInArticle = item['duplicateCoverInArticle'] ?? item['duplicateImageInArticle'] ?? true;
     final targetRedirectUrl = item['link'] ?? item['redirectUrl'] ?? "";
+    final videoUrl = item['videoUrl'] ?? item['youtubeUrl'] ?? item['youtubeId'] ?? "";
     final customActionLabel = item['actionButtonLabel'] ?? item['buttonLabel'] ?? "Visit External Source / Link";
     final formattedDate = _formatTimestamp(item['updatedAt'] ?? item['createdAtTimestamp'] ?? item['timestamp']);
 
@@ -212,7 +174,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
         bottom: false,
         child: Column(
           children: [
-            // --- Sticky Top Header ---
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               color: primaryHeaderDark,
@@ -234,8 +195,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                 ],
               ),
             ),
-
-            // --- FIXED TOP AD SECTION ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -287,8 +246,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                 ),
               ),
             ),
-
-            // --- Scrollable Article Content ---
             Expanded(
               child: Container(
                 color: Colors.white,
@@ -297,7 +254,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Admin Duplicate Button
                       if (widget.isAdminMode)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
@@ -316,8 +272,6 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                             ),
                           ),
                         ),
-
-                      // Meta Bar (Category Badge + Date)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -343,15 +297,11 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // Title
                       Text(
                         headline.toString(),
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textDark, height: 1.3),
                       ),
                       const SizedBox(height: 16),
-
-                      // Image Frame
                       if (imageUrl.isNotEmpty && duplicateCoverInArticle)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
@@ -370,27 +320,36 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                             ),
                           ),
                         ),
-
-                      // Video Player
-                      if (_youtubeController != null)
+                      // Native Video Watch Button
+                      if (videoUrl.toString().isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: YoutubePlayer(
-                              controller: _youtubeController!,
-                              showVideoProgressIndicator: true,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.styleFrom(backgroundColor: Colors.red).wrap(
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[700],
+                                  padding: const EdgeInsets.all(14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () => _launchExternalUrl(videoUrl.toString().startsWith('http') ? videoUrl.toString() : 'https://youtube.com/watch?v=$videoUrl'),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.play_circle_fill, color: Colors.white, size: 22),
+                                    SizedBox(width: 8),
+                                    Text("Watch Video on YouTube", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
-
-                      // Article Body Text
                       Text(
                         fullContent.toString(),
                         style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                       ),
-
-                      // External Action Button
                       if (targetRedirectUrl.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 20.0),
@@ -414,16 +373,12 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
                             ),
                           ),
                         ),
-
-                      // 300px Whitespace at the end
                       const SizedBox(height: 300),
                     ],
                   ),
                 ),
               ),
             ),
-
-            // Bottom base block to cover mobile safe-area nicely
             Container(
               height: MediaQuery.of(context).padding.bottom + 10,
               color: primaryHeaderDark,
