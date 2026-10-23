@@ -25,9 +25,9 @@ jobs:
           flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Generate Framework with Exact Package Name & Setup Firebase
+      - name: Generate Framework and Setup Firebase
         run: |
-          # 1. Generate clean Android template project matching your exact Firebase package name (com.fikrapro.app)
+          # 1. Generate clean Android template project with your exact package name (com.fikrapro.app)
           flutter create temp_app --org com.fikrapro --project-name app
           cp -r temp_app/android ./
           rm -rf temp_app
@@ -40,29 +40,31 @@ jobs:
             echo "WARNING: google-services.json not found in root repository."
           fi
 
-          # 3. Configure Gradle to support Google Services / Firebase plugins safely
-          # Add google-services plugin dependency to project-level build.gradle or settings.gradle
-          BUILD_GRADLE="android/build.gradle"
-          if [ -f "$BUILD_GRADLE" ]; then
+          # 3. Configure Gradle settings for Google Services plugin
+          SETTINGS_FILE="android/settings.gradle"
+          if [ -f "$SETTINGS_FILE" ]; then
             python3 -c "
-            with open('$BUILD_GRADLE', 'r') as f:
+            with open('$SETTINGS_FILE', 'r') as f:
                 content = f.read()
             if 'google-services' not in content:
-                content = content.replace('dependencies {', 'dependencies {\n        classpath \"com.google.gms:google-services:4.4.2\"')
-                with open('$BUILD_GRADLE', 'w') as f:
+                content = content.replace('plugins {', 'plugins {\n    id \"com.google.gms.google-services\" version \"4.4.2\" apply false')
+                with open('$SETTINGS_FILE', 'w') as f:
                     f.write(content)
             "
           fi
 
-          # Apply plugin in app-level build.gradle
           APP_BUILD_GRADLE="android/app/build.gradle"
           if [ -f "$APP_BUILD_GRADLE" ]; then
             echo "apply plugin: 'com.google.gms.google-services'" >> "$APP_BUILD_GRADLE"
           fi
 
-          # 4. Insert AndroidManifest.xml directly with your app label and AdMob config
+          # 4. Insert AndroidManifest.xml WITH INTERNET PERMISSION & AdMob config
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <!-- CRITICAL: Internet permission required for Firebase, Ads, and Images -->
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
               <application
                   android:label="Fikra Pro"
                   android:name="${applicationName}"
