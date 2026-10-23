@@ -82,8 +82,27 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Image.asset(
           'assets/images/s1.png',
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => 
-              const Center(child: Text("Fikra Pro", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[800],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.flash_on, color: Colors.white, size: 50),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Fikra Pro",
+                  style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -254,7 +273,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               'assets/images/s.png',
               width: 28,
               height: 28,
-              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+                child: const Center(child: Text("F", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+              ),
             ),
             const SizedBox(width: 10),
             const Text(
