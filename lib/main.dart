@@ -11,6 +11,12 @@ import 'social_hub_screen.dart';
 import 'article_details_screen.dart';
 
 void main() async {
+  // Global catch for framework errors to prevent silent crash-stops
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint("FlutterError caught: ${details.exception}");
+  };
+
   WidgetsFlutterBinding.ensureInitialized();
   
   // Crash-proof initializations
@@ -133,26 +139,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _loadAdConfigAndInit() {
     if (_dbRef == null) return;
     _dbRef!.child('$appNodeName/adManager').onValue.listen((event) {
-      final data = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (data != null && mounted) {
-        setState(() {
-          _adConfig = data;
-        });
-        
-        final bool adsEnabled = (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE' || 
-                                (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'ON';
-        
-        if (adsEnabled) {
-          _loadInitialAppOpenAd();
-          _initBannerAd();
+      try {
+        final val = event.snapshot.value;
+        if (val is Map && mounted) {
+          setState(() {
+            _adConfig = Map<dynamic, dynamic>.from(val);
+          });
+          
+          final bool adsEnabled = (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE' || 
+                                  (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'ON';
+          
+          if (adsEnabled) {
+            _loadInitialAppOpenAd();
+            _initBannerAd();
+          }
         }
+      } catch (e) {
+        debugPrint("AdConfig parse error: $e");
       }
+    }, onError: (e) {
+      debugPrint("AdConfig stream error: $e");
     });
+  }
+
+  bool _getPlacement(String key) {
+    try {
+      final placements = _adConfig['placements'];
+      if (placements is Map) {
+        return placements[key] == true;
+      }
+    } catch (e) {
+      debugPrint("Placement read error: $e");
+    }
+    return false;
   }
 
   void _loadInitialAppOpenAd() {
     final String? appOpenId = _adConfig['adMobAppOpenUnitId']?.toString();
-    if (appOpenId == null) return;
+    if (appOpenId == null || appOpenId.isEmpty) return;
 
     AppOpenAd.load(
       adUnitId: appOpenId,
@@ -160,22 +184,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       adLoadCallback: AppOpenAdLoadCallback(
         onAdLoaded: (ad) {
           _appOpenAd = ad;
-          if (!_isInitialAdLoaded) {
+          if (!_isInitialAdLoaded && mounted) {
             _isInitialAdLoaded = true;
             _appOpenAd?.show();
           }
         },
-        onAdFailedToLoad: (error) {},
+        onAdFailedToLoad: (error) {
+          debugPrint("AppOpenAd load failed: $error");
+        },
       ),
     );
   }
 
   void _showResumeAppOpenAd() {
     final bool adsEnabled = (_adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE';
-    final bool resumePlacement = _adConfig['placements']?['appOpenAdResume'] == true;
+    final bool resumePlacement = _getPlacement('appOpenAdResume');
     final String? appOpenId = _adConfig['adMobAppOpenUnitId']?.toString();
 
-    if (!adsEnabled || !resumePlacement || appOpenId == null) return;
+    if (!adsEnabled || !resumePlacement || appOpenId == null || appOpenId.isEmpty) return;
 
     AppOpenAd.load(
       adUnitId: appOpenId,
@@ -188,10 +214,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _initBannerAd() {
-    final bool showBanner = _adConfig['placements']?['bannerAdHomePage'] == true;
+    final bool showBanner = _getPlacement('bannerAdHomePage');
     final String? bannerId = _adConfig['adMobBannerUnitId']?.toString();
 
-    if (!showBanner || bannerId == null) return;
+    if (!showBanner || bannerId == null || bannerId.isEmpty) return;
 
     _bannerAd = BannerAd(
       adUnitId: bannerId,
@@ -201,7 +227,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onAdLoaded: (_) {
           if (mounted) setState(() => _isBannerLoaded = true);
         },
-        onAdFailedToLoad: (ad, error) => ad.dispose(),
+        onAdFailedToLoad: (ad, error) {
+          debugPrint("BannerAd load failed: $error");
+          ad.dispose();
+        },
       ),
     )..load();
   }
@@ -305,6 +334,9 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
   List<Map<dynamic, dynamic>> _broadcasts = [];
   bool _isLoading = true;
 
+  Map<dynamic, dynamic> _shikelaNewsCache = {};
+  Map<dynamic, dynamic> _newNewsCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -312,6 +344,7 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
       _dbRef = FirebaseDatabase.instance.ref();
       _fetchDatabaseNews();
     } catch (e) {
+      debugPrint("News init error: $e");
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -322,45 +355,79 @@ class _FikraProNewsListState extends State<FikraProNewsList> {
 
   void _fetchDatabaseNews() {
     if (_dbRef == null) return;
-    List<Map<dynamic, dynamic>> tempList = [];
 
-    void processNode(Object? data, String defaultCat) {
-      if (data is Map) {
-        data.forEach((key, value) {
-          if (value is Map) {
-            final item = Map<dynamic, dynamic>.from(value);
-            item['id'] = key;
-            item['category'] = (item['category'] ?? defaultCat).toString().replaceAll(RegExp('Shikela', caseSensitive: false), 'Fikra Pro');
-            
-            var rawTime = item['timestamp'] ?? item['updatedAt'] ?? item['createdAtTimestamp'] ?? DateTime.now().millisecondsSinceEpoch;
-            if (rawTime is String) rawTime = int.tryParse(rawTime) ?? DateTime.now().millisecondsSinceEpoch;
-            item['resolvedTimestamp'] = rawTime;
+    void processAndCombine() {
+      List<Map<dynamic, dynamic>> tempList = [];
 
-            tempList.add(item);
-          }
+      void parseNode(Map<dynamic, dynamic>? data, String defaultCat) {
+        if (data != null) {
+          data.forEach((key, value) {
+            if (value is Map) {
+              try {
+                final item = Map<dynamic, dynamic>.from(value);
+                item['id'] = key;
+                item['category'] = (item['category'] ?? defaultCat).toString().replaceAll(RegExp('Shikela', caseSensitive: false), 'Fikra Pro');
+                
+                var rawTime = item['timestamp'] ?? item['updatedAt'] ?? item['createdAtTimestamp'] ?? DateTime.now().millisecondsSinceEpoch;
+                int resolvedTime = DateTime.now().millisecondsSinceEpoch;
+                if (rawTime is int) {
+                  resolvedTime = rawTime;
+                } else if (rawTime is String) {
+                  resolvedTime = int.tryParse(rawTime) ?? resolvedTime;
+                } else if (rawTime is double) {
+                  resolvedTime = rawTime.toInt();
+                }
+                item['resolvedTimestamp'] = resolvedTime;
+
+                tempList.add(item);
+              } catch (e) {
+                debugPrint("Item parse error: $e");
+              }
+            }
+          });
+        }
+      }
+
+      parseNode(_shikelaNewsCache, 'Fikra Pro Update');
+      parseNode(_newNewsCache, 'Fikra Pro Tips');
+
+      tempList.sort((a, b) => (b['resolvedTimestamp'] as int).compareTo(a['resolvedTimestamp'] as int));
+      
+      if (mounted) {
+        setState(() {
+          _broadcasts = tempList;
+          _isLoading = false;
         });
       }
     }
 
     _dbRef!.child('$appNodeName/shikelaNews').onValue.listen((event) {
-      processNode(event.snapshot.value, 'Fikra Pro Update');
-      _sortAndSaveList(tempList);
+      try {
+        final val = event.snapshot.value;
+        if (val is Map) {
+          _shikelaNewsCache = Map<dynamic, dynamic>.from(val);
+        } else {
+          _shikelaNewsCache = {};
+        }
+        processAndCombine();
+      } catch (e) {
+        debugPrint("shikelaNews stream error: $e");
+      }
     });
 
     _dbRef!.child('$appNodeName/newNews').onValue.listen((event) {
-      processNode(event.snapshot.value, 'Fikra Pro Tips');
-      _sortAndSaveList(tempList);
+      try {
+        final val = event.snapshot.value;
+        if (val is Map) {
+          _newNewsCache = Map<dynamic, dynamic>.from(val);
+        } else {
+          _newNewsCache = {};
+        }
+        processAndCombine();
+      } catch (e) {
+        debugPrint("newNews stream error: $e");
+      }
     });
-  }
-
-  void _sortAndSaveList(List<Map<dynamic, dynamic>> list) {
-    list.sort((a, b) => b['resolvedTimestamp'].compareTo(a['resolvedTimestamp']));
-    if (mounted) {
-      setState(() {
-        _broadcasts = list;
-        _isLoading = false;
-      });
-    }
   }
 
   @override
@@ -387,12 +454,22 @@ class NewsCard extends StatelessWidget {
 
   const NewsCard({super.key, required this.item, required this.adConfig});
 
+  bool _getPlacement(String key) {
+    try {
+      final placements = adConfig['placements'];
+      if (placements is Map) {
+        return placements[key] == true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   void _handleCardTap(BuildContext context) {
     final bool adsEnabled = (adConfig['adStatus'] ?? '').toString().toUpperCase() == 'TRUE';
-    final bool interstitialPlacement = adConfig['placements']?['interstitialAdPostDetails'] == true;
+    final bool interstitialPlacement = _getPlacement('interstitialAdPostDetails');
     final String? interstitialId = adConfig['adMobInterstitialUnitId']?.toString();
 
-    if (adsEnabled && interstitialPlacement && interstitialId != null) {
+    if (adsEnabled && interstitialPlacement && interstitialId != null && interstitialId.isNotEmpty) {
       InterstitialAd.load(
         adUnitId: interstitialId,
         request: const AdRequest(),
@@ -400,7 +477,14 @@ class NewsCard extends StatelessWidget {
           onAdLoaded: (ad) {
             ad.show();
             ad.fullScreenContentCallback = FullScreenContentCallback(
-              onAdDismissedFullScreenContent: (ad) => _navigateToDetails(context),
+              onAdDismissedFullScreenContent: (ad) {
+                ad.dispose();
+                _navigateToDetails(context);
+              },
+              onAdFailedToShowFullScreenContent: (ad, error) {
+                ad.dispose();
+                _navigateToDetails(context);
+              },
             );
           },
           onAdFailedToLoad: (error) => _navigateToDetails(context),
@@ -424,9 +508,9 @@ class NewsCard extends StatelessWidget {
     final content = item['content'] ?? item['message'] ?? '';
     final preview = content.length > 120 ? '${content.substring(0, 120)}...' : content;
     final category = item['category'] ?? 'Fikra Pro Update';
-    final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
     
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(item['resolvedTimestamp']);
+    int timestamp = item['resolvedTimestamp'] ?? DateTime.now().millisecondsSinceEpoch;
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final formattedTime = DateFormat('MMM d, yyyy • h:mm:ss a').format(dateTime);
 
     return Container(
