@@ -57,7 +57,8 @@ class _ArticleDetailsScreenState extends State<ArticleDetailsScreen> {
     if (videoId != null && videoId.isNotEmpty) {
       _youtubeController = YoutubePlayerController(
         initialVideoId: videoId,
-        flags: const YoutubePlayerFlags(
+        // FIXED: Removed 'const' to resolve constant expression build compilation errors
+        flags: YoutubePlayerFlags(
           autoPlay: false,
           mute: false,
           enableCaption: true,
