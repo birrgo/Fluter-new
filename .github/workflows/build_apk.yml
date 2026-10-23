@@ -1,6 +1,5 @@
 name: Build Android APK with Firebase
 
-
 on:
   push:
     branches: [ main ]
@@ -28,7 +27,7 @@ jobs:
 
       - name: Generate Framework and Setup Firebase
         run: |
-          # 1. Generate clean Android template project with your exact package name (com.fikrapro.app)
+          # 1. Generate clean Android template project with package com.fikrapro.app
           flutter create temp_app --org com.fikrapro --project-name app
           cp -r temp_app/android ./
           rm -rf temp_app
@@ -100,7 +99,7 @@ jobs:
           </manifest>
           EOF
 
-          # 5. Create pubspec.yaml with all dependencies and assets (including youtube_player_flutter)
+          # 5. Create pubspec.yaml with clean native dependencies
           cat << 'EOF' > pubspec.yaml
           name: fluter_new
           description: "Fikra Pro App"
@@ -120,7 +119,6 @@ jobs:
             cached_network_image: ^3.3.1
             intl: ^0.19.0
             url_launcher: ^6.2.5
-            youtube_player_flutter: ^9.0.1
 
           dev_dependencies:
             flutter_test:
@@ -153,11 +151,11 @@ jobs:
           mkdir -p android/app/src/main/res/values
           echo '<resources><string name="app_name">Fikra Pro</string></resources>' > "$STRING_FILE"
 
-          # Install packages and generate launcher icons
+          # Install dependencies and generate launcher icons
           flutter pub get
           flutter pub run flutter_launcher_icons
 
-          # Build Release APK
+          # Build Native Release APK
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
