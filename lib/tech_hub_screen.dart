@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'article_details_screen.dart';
 
 class TechHubScreen extends StatefulWidget {
   const TechHubScreen({super.key});
@@ -112,7 +113,7 @@ class _TechHubScreenState extends State<TechHubScreen> with WidgetsBindingObserv
             // Extract Timestamp safely
             var rawTime = item['updatedAt'] ?? item['createdAtTimestamp'] ?? item['timestamp'];
             if (rawTime == null && item['date'] != null) {
-              rawTime = DateTime.tryParse(item['date'])?.millisecondsSinceEpoch;
+              rawTime = DateTime.tryParse(item['date'].toString())?.millisecondsSinceEpoch;
             }
             item['resolvedTimestamp'] = rawTime ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -123,10 +124,12 @@ class _TechHubScreenState extends State<TechHubScreen> with WidgetsBindingObserv
 
       tempList.sort((a, b) => b['resolvedTimestamp'].compareTo(a['resolvedTimestamp']));
 
-      setState(() {
-        _broadcasts = tempList;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _broadcasts = tempList;
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -138,50 +141,38 @@ class _TechHubScreenState extends State<TechHubScreen> with WidgetsBindingObserv
       return category == 'tech update' || category == 'tech tips';
     }).toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF081B38),
-        title: const Text('Tech Hub', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {
-            // Open menu drawer
-          },
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredBroadcasts.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Text(
-                            "There are no updates or tips posted today.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
+    return Column(
+      children: [
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : filteredBroadcasts.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text(
+                          "There are no tech updates or tips posted today.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filteredBroadcasts.length,
-                        itemBuilder: (context, index) {
-                          final item = filteredBroadcasts[index];
-                          return NewsCard(item: item, adConfig: _adConfig);
-                        },
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredBroadcasts.length,
+                      itemBuilder: (context, index) {
+                        final item = filteredBroadcasts[index];
+                        return NewsCard(item: item, adConfig: _adConfig);
+                      },
+                    ),
+        ),
+        if (_isBannerLoaded && _bannerAd != null)
+          SizedBox(
+            height: _bannerAd!.size.height.toDouble(),
+            width: _bannerAd!.size.width.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
           ),
-          if (_isBannerLoaded && _bannerAd != null)
-            SizedBox(
-              height: _bannerAd!.size.height.toDouble(),
-              width: _bannerAd!.size.width.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -220,7 +211,7 @@ class NewsCard extends StatelessWidget {
   void _navigateToDetails(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(item: item)),
+      MaterialPageRoute(builder: (context) => ArticleDetailsScreen(articleData: item)),
     );
   }
 
@@ -228,13 +219,13 @@ class NewsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = item['title'] ?? item['newsTitle'] ?? 'Tech Update';
     final content = item['content'] ?? item['message'] ?? '';
-    final preview = content.length > 120 ? '${content.substring(0, 120)}...' : content;
+    final preview = content.toString().length > 120 ? '${content.toString().substring(0, 120)}...' : content.toString();
     final category = item['category'] ?? 'Tech Update';
     final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
 
     final dateTime = DateTime.fromMillisecondsSinceEpoch(item['resolvedTimestamp']);
     final formattedTime = DateFormat('MMM d, yyyy • h:mm:ss a').format(dateTime);
-    final isTips = category.trim().toLowerCase().contains("tips");
+    final isTips = category.toString().trim().toLowerCase().contains("tips");
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -253,7 +244,7 @@ class NewsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -262,7 +253,7 @@ class NewsCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    category,
+                    category.toString(),
                     style: TextStyle(
                       color: isTips ? const Color(0xFF2563EB) : const Color(0xFF0F2C59),
                       fontSize: 9.5,
@@ -273,12 +264,12 @@ class NewsCard extends StatelessWidget {
                 Text(formattedTime, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
               ],
             ),
-            if (imageUrl.isNotEmpty) ...[
+            if (imageUrl.toString().isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: CachedNetworkImage(
-                  imageUrl: imageUrl,
+                  imageUrl: imageUrl.toString(),
                   height: 180,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -288,44 +279,9 @@ class NewsCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.35)),
+            Text(title.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.35)),
             const SizedBox(height: 6),
             Text(preview, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Color(0xFF475569), height: 1.55)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- ARTICLE DETAILS SCREEN ---
-class ArticleDetailsScreen extends StatelessWidget {
-  final Map<dynamic, dynamic> item;
-  const ArticleDetailsScreen({super.key, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = item['title'] ?? item['newsTitle'] ?? 'Details';
-    final content = item['content'] ?? item['message'] ?? '';
-    final imageUrl = item['imageUrl'] ?? item['image'] ?? '';
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title, style: const TextStyle(fontSize: 14))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (imageUrl.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 16),
-            ],
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Text(content, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF334155))),
           ],
         ),
       ),
