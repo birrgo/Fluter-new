@@ -32,12 +32,13 @@ jobs:
           cp -r temp_app/android ./
           rm -rf temp_app
 
-          # 2. Copy google-services.json into the Android app directory
+          # 2. STRICTLY check and copy google-services.json into android/app/
           if [ -f "google-services.json" ]; then
             cp google-services.json android/app/
-            echo "google-services.json successfully applied!"
+            echo "SUCCESS: google-services.json found and applied to android/app/"
           else
-            echo "WARNING: google-services.json not found in root repository."
+            echo "ERROR: google-services.json is missing from your repository root!"
+            exit 1
           fi
 
           # 3. Configure Gradle settings for Google Services plugin
