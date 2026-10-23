@@ -1,4 +1,4 @@
-Name: Build Android APK with Firebase
+name: Build Android APK with Firebase
 
 on:
   push:
