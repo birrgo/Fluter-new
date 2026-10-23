@@ -104,7 +104,8 @@ class MenuScreen extends StatelessWidget {
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.between,
+          // FIXED: Changed from MainAxisAlignment.between to MainAxisAlignment.spaceBetween
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
